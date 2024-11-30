@@ -5,7 +5,9 @@
 #include "OneButton.h"
 #include "Buttons.h"
 #include "LEDStrips.h"
-#include "AnimationFront.h"
+#include "Animation.h"
+#include "AnimationMode.h"
+// #include <esp_log.h>
 
 #define NUM_STRIPS 3
 
@@ -15,42 +17,78 @@
 #define STRIP2_PIN 16
 #define STRIP3_PIN 5
 
-// Semaphore for thread-safe operations
-SemaphoreHandle_t xStripMutex;
-
-// Queue for button events
-QueueHandle_t buttonEventQueue;
-
-// LED strip definitions
-
+void buttonLoop(void *pvParameters){
+    for (;;){
+        updateButtons();
+        vTaskDelay(pdMS_TO_TICKS(2));
+    }
+}
 
 void setup() {
     Serial.begin(921600);
-    // Create mutex for thread-safe strip access
-    xStripMutex = xSemaphoreCreateMutex();
     setupLED();
-    // Create button event queue
-    buttonEventQueue = xQueueCreate(5, sizeof(uint32_t));
     attachButtons();
+    xTaskCreate(buttonLoop, "buttonLoop", 2048, NULL, 1, NULL);
 }
 
-// RTOS will handle tasks, so loop() can be minimal
-void loop() {
-    long start = micros();
-    updateButtons();
-    // EVERY_N_MILLISECONDS(1000) {
+void playAnimation(AnimationMode_t mode)
+{
+    static AnimationMode_t ActiveMode = IDLE;
+    const char* TAG = "playAnimation";
 
-    //     Serial.println("Loop");
-    // }
-    WelcomeAnimation();
-    long start2 = micros();
-    FastLED.show();
-    long end = micros();
-    long loopTime = end - start;
-    long showTime = end - start2;
-    Serial.print((float)loopTime/1000.f); Serial.println("ms");
-    // Serial.print("SHOW: ");
-    // Serial.print((float)showTime / 1000.f);
-    // Serial.println("ms");
-    // vTaskDelay(2 / portTICK_PERIOD_MS);
+
+    if (ActiveMode == IDLE){
+        ActiveMode = mode;
+    }
+    if (isDRLActive && ActiveMode != WELCOME){
+        
+        frontStrip.fill_solid(CRGB::White);
+    }
+    // ESP_LOGD(TAG, "Active mode: %d", ActiveMode);
+    // ESP_LOGD(TAG, "Current mode: %d", mode);
+
+    switch (ActiveMode)
+    {
+    case WELCOME:
+        WelcomeAnimation() ? ActiveMode = IDLE : ActiveMode = WELCOME;
+        curMode = ActiveMode == IDLE? IDLE : curMode;
+        break;
+    case SIGNAL_LEFT:
+        TurnLeftAnimation() ? ActiveMode = IDLE : ActiveMode = SIGNAL_LEFT;
+        break;
+    case SIGNAL_RIGHT:
+        TurnRightAnimation() ? ActiveMode = IDLE : ActiveMode = SIGNAL_RIGHT;
+        break;
+    case SIGNAL_BOTH:
+        HazardAnimation() ? ActiveMode = IDLE : ActiveMode = SIGNAL_BOTH;
+        break;
+    case STROBE:
+        StrobeAnimation() ? ActiveMode = IDLE : ActiveMode = STROBE;
+        break;
+    case BYE:
+        ByeAnimation() ? ActiveMode = IDLE : ActiveMode = BYE;
+        break;
+    case KNIGHT_RIDER:
+        RunningAnimation() ? ActiveMode = IDLE : ActiveMode = KNIGHT_RIDER;
+        break;
+    default:
+        break;
+    }
+}
+
+void loop() {
+    EVERY_N_MILLISECONDS(10){
+        vTaskDelay(5 / portTICK_PERIOD_MS);
+        playAnimation(curMode);
+    }
+    if(isBrakePressed){
+        BrakeLight();
+    }else{
+        if (curMode == IDLE){
+            backStrip.fadeToBlackBy(40);
+        }
+    }
+    FastLED.setBrightness(BRIGHTNESS);
+    FastLED.delay(2);
+    vTaskDelay(5 / portTICK_PERIOD_MS);
 }

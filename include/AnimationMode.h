@@ -4,11 +4,14 @@
 typedef enum AnimationMode
 {
     WELCOME,
+    BYE,
     SIGNAL_LEFT,
     SIGNAL_RIGHT,
     SIGNAL_BOTH,
     STROBE,
-    STROBE2
+    STROBE2,
+    KNIGHT_RIDER,
+    IDLE,
 } AnimationMode_t;
 
 #endif // ANIMATION_MODE_H
