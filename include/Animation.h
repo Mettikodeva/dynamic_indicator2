@@ -12,27 +12,32 @@ uint8_t mid = NUM_LEDS_FRONT_STRIP / 2;
 uint8_t mid2 = NUM_LEDS_MID_STRIP / 2;
 uint8_t mid3 = NUM_LEDS_BACK_STRIP / 2;
 
-int counterFront = 0;
-uint8_t counterAnim = 0;
-uint8_t counterAnimMid = 0;
-uint8_t counterAnimBack = 0;
 
 uint8_t lastPosition = 0; 
 uint8_t lastPosition2 = 0; 
 uint8_t lastPosition3 = 0; 
-const uint8_t divider = 7;
-uint8_t commet = NUM_LEDS_FRONT_STRIP / (divider*2);
-uint8_t commet2 = NUM_LEDS_MID_STRIP / (divider*2);
-uint8_t commet3 = NUM_LEDS_BACK_STRIP / (divider*2);
+const uint8_t dividerFront = 16;
+const uint8_t dividerMid = 14;
+const uint8_t dividerBack = 7;
+
+ 
+
+uint8_t commet = NUM_LEDS_FRONT_STRIP / (dividerFront*2);
+uint8_t commet2 = NUM_LEDS_MID_STRIP / (dividerMid*2);
+uint8_t commet3 = NUM_LEDS_BACK_STRIP / (dividerBack*2);
 
 // CRGBArray<mid> frontStripRight = frontStrip(NUM_LEDS_FRONT_STRIP / 2, NUM_LEDS_FRONT_STRIP);
 bool isAnimating = false;
 
-bool WelcomeAnimation()
+bool WelcomeAnimation()`
 {   
     // Welcome animation
+    static int counterAnim = 0;
+    static int counterFront = 0;
     if(counterFront >= 1){
         frontStrip.fill_solid(CRGB::White);
+        counterFront = 0;
+        curMode = IDLE;
         return true;
     }
     uint8_t rawww = triwave8(counterAnim);
@@ -46,7 +51,6 @@ bool WelcomeAnimation()
 
     Serial.println(counterAnim++);
     ESP_LOGD("frontcounter", "%d\n", counterFront);
-    // Serial.println("----");
 
     frontStrip[mid - indexLed - 1] = CRGB::White;
     frontStrip[mid + indexLed] = CRGB::White;
@@ -80,63 +84,102 @@ bool WelcomeAnimation()
 }
 
 bool ByeAnimation(){
-    EVERY_N_MILLISECONDS(100){
-        static uint8_t counterBye = 0;
-        static uint8_t brightness = 1;
-        uint8_t raw = triwave8(counterBye);
-        if (counterBye >=254){
-            counterBye = 0;
-            fill_solid(frontStrip, NUM_LEDS_FRONT_STRIP, CRGB::Black);
-            return true;
-        }
-
-        if (raw>=254){
-            ESP_LOGD("Bye", "brightness: %d", brightness);
-            curMode = IDLE;
-            brightness = 0;
-            delay(500);
-        }
-
-        uint8_t indexLed = map8(raw, 0, 15);
-        counterBye += 8;
-        ESP_LOGD("Bye", "counterBye: %d", counterBye);
-        ESP_LOGD("Bye", "raw: %d", raw);
-        ESP_LOGD("Bye", "up: %d-", mid + indexLed*commet,mid + indexLed*commet+commet);
-        ESP_LOGD("Bye", "brightness: %d", brightness*127);
-        // ESP_LOGD("Bye", "down: %d", mid-indexLed*commet);
-        fadeToBlackBy(&frontStrip[mid+indexLed*commet], commet , brightness*127);
-        fadeToBlackBy(&frontStrip[mid-indexLed*commet-commet],commet, brightness*127);
-        return false;
+    static int counterAnim = 0;
+    static int counterFront = 0;
+    if(counterFront >= 1){
+        frontStrip.fill_solid(CRGB::Black);
+        curMode = IDLE;
+        return true;
     }
+    uint8_t rawww = triwave8(counterAnim);
+    uint8_t raww = triwave8(rawww);
+    uint8_t raw = triwave8(raww);
+    if (counterAnim > 255){
+        counterAnim = 0;
+    }
+
+    int indexLed = map(raw, 0, 255, 0, NUM_LEDS_FRONT_STRIP/2);
+
+    Serial.println(counterAnim++);
+    ESP_LOGD("BYE", "frontcounter:%d raww:%d\n", counterFront,raww);
+    // Serial.println("----");
+    CRGB color = raww > 127 ? CRGB::Black: CRGB(127,127,127);
+    frontStrip[mid - indexLed - 1] = color;
+    frontStrip[mid + indexLed] = color;
+
+    if (abs(lastPosition - indexLed) >= 2){
+        if (lastPosition < indexLed){
+            for (int i = lastPosition; i < indexLed; i++){
+                frontStrip[mid - i - 1] = color;
+                frontStrip[mid + i] = color;
+            }
+        }else{
+            for (int i = indexLed; i < lastPosition; i++){
+                frontStrip[mid - i - 1] = color;
+                frontStrip[mid + i] = color;
+            }
+        }
+
+    }
+    
+    // fadeToBlackBy(frontStrip, NUM_LEDS_FRONT_STRIP, 2);
+    if (indexLed <= 1)
+    {
+        EVERY_N_MILLISECONDS(500)
+        {
+            ESP_LOGD("frontcounter", "%d\n", counterFront);
+            counterFront++;
+        }
+    }
+    lastPosition = indexLed;
     return false;
 }
 
 bool TurnLeftAnimation()
 {
     EVERY_N_MILLISECONDS(N_MILLIS_SIGNAL){
-        // Left turn animation
-        if (counterAnim>mid){
+        static int counterAnim = 0;
+        ESP_LOGD("TurnLeft", "counterAnim: %d", counterAnim);
+        if (counterAnim == dividerFront+1){
+            fadeToBlackBy(frontStrip, mid, 255);
+            fadeToBlackBy(midStrip, mid2, 255);
+            fadeToBlackBy(backStrip, mid3, 255);
             counterAnim = 0;
-            counterAnimMid = 0;
-            counterAnimBack = 0;
-            fill_solid(frontStrip, mid, CRGB::Black);
-            fill_solid(midStrip, mid2, CRGB::Black);
-            fill_solid(backStrip, mid3, CRGB::Black);
             return true;
         }
+        // // Left turn animation
+        // if (counterAnim>mid){
+        //     counterAnim = 0;
+        //     counterAnimMid = 0;
+        //     counterAnimBack = 0;
+        //     fill_solid(frontStrip, mid, CRGB::Black);
+        //     fill_solid(midStrip, mid2, CRGB::Black);
+        //     fill_solid(backStrip, mid3, CRGB::Black);
+        //     return true;
+        // }
 
-        uint8_t indexLed = counterAnim;
-        uint8_t indexLed2 = counterAnimMid;
-        uint8_t indexLed3 = counterAnimBack;
+        // uint8_t indexLed = counterAnim;
+        // uint8_t indexLed2 = counterAnimMid;
+        // uint8_t indexLed3 = counterAnimBack;
 
-        counterAnim += commet;
-        counterAnimMid += commet2;
-        counterAnimBack += commet3;
-        
-        fadeToBlackBy(frontStrip, mid, 64);
-        fadeToBlackBy(midStrip, mid2, 64);
-        fadeToBlackBy(backStrip, mid3, 64);
+        // counterAnim += commet;
+        // counterAnimMid += commet2;
+        // counterAnimBack += commet3;
 
+        uint16_t raw = beat8(30);
+        uint8_t indexLed = map8(raw, 0, dividerFront+1);
+        counterAnim = indexLed;
+        uint8_t indexLed2 = map8(raw, 0, dividerMid+1);
+        uint8_t indexLed3 = map8(raw, 0, dividerBack+1);
+        indexLed = indexLed * commet;
+        indexLed2 = indexLed2*commet2;
+        indexLed3 = indexLed3*commet3;
+
+
+        // fadeToBlackBy(frontStrip, mid, 64);
+        // fadeToBlackBy(midStrip, mid2, 64);
+        // fadeToBlackBy(backStrip, mid3, 64);
+            
         fill_solid(&frontStrip[mid - indexLed], indexLed, CRGB::Yellow);
         fill_solid(&midStrip[mid2 - indexLed2], indexLed2, CRGB::Yellow);
         fill_solid(&backStrip[mid3+1 -indexLed3], indexLed3, CRGB::Yellow);
@@ -153,9 +196,12 @@ bool TurnLeftAnimation()
 
 bool TurnRightAnimation()
 {   
+    static int counterAnimFront = 0;
+    static int counterAnimMid = 0;
+    static int counterAnimBack = 0;
     EVERY_N_MILLISECONDS(N_MILLIS_SIGNAL){
-        if (counterAnim>=mid){
-            counterAnim = 0;
+        if (counterAnimFront>mid){
+            counterAnimFront = 0;
             counterAnimMid = 0;
             counterAnimBack = 0;
 
@@ -166,11 +212,11 @@ bool TurnRightAnimation()
         }
     
 
-        uint8_t indexLed = counterAnim;
+        uint8_t indexLed = counterAnimFront;
         uint8_t indexLed2 = counterAnimMid;
         uint8_t indexLed3 = counterAnimBack;
 
-        counterAnim += commet;
+        counterAnimFront += commet;
         counterAnimMid += commet2;
         counterAnimBack += commet3;
 
@@ -178,7 +224,12 @@ bool TurnRightAnimation()
         fadeToBlackBy(&midStrip[mid2], mid2, 64);
         fadeToBlackBy(&backStrip[mid3+1], mid3, 64);
 
-        fill_solid(&frontStrip[mid], commet+ indexLed, CRGB::Yellow);
+        if(indexLed+commet <= mid){
+            fill_solid(&frontStrip[mid], commet+ indexLed, CRGB::Yellow);
+
+        }else{
+            fill_solid(&frontStrip[mid], mid-indexLed, CRGB::Yellow);
+        }
         fill_solid(&midStrip[mid2], commet2+ indexLed2, CRGB::Yellow);
         fill_solid(&backStrip[mid3+1 ], commet3+ indexLed3, CRGB::Yellow);
         
@@ -198,43 +249,44 @@ bool HazardAnimation()
 {
     
     EVERY_N_MILLISECONDS(N_MILLIS_SIGNAL){
-            
+        TurnLeftAnimation();
+        return TurnRightAnimation();      
         // Hazard animation
-        if (counterAnim>=mid){
-            counterAnim = 0;
-            counterAnimMid = 0;
-            counterAnimBack = 0;
-            frontStrip.fill_solid(CRGB::Black);
-            midStrip.fill_solid(CRGB::Black);
-            backStrip.fill_solid(CRGB::Black);
-            return true;
-        }
+        // if (counterAnim>=mid){
+        //     counterAnim = 0;
+        //     counterAnimMid = 0;
+        //     counterAnimBack = 0;
+        //     frontStrip.fill_solid(CRGB::Black);
+        //     midStrip.fill_solid(CRGB::Black);
+        //     backStrip.fill_solid(CRGB::Black);
+        //     return true;
+        // }
 
-        uint8_t indexLed = counterAnim;
-        uint8_t indexLed2 = counterAnimMid;
-        uint8_t indexLed3 = counterAnimBack;
+        // uint8_t indexLed = counterAnim;
+        // uint8_t indexLed2 = counterAnimMid;
+        // uint8_t indexLed3 = counterAnimBack;
 
-        counterAnim += commet;
-        counterAnimMid += commet2;
-        counterAnimBack += commet3;
+        // counterAnim += commet;
+        // counterAnimMid += commet2;
+        // counterAnimBack += commet3;
         
-        fadeToBlackBy(frontStrip, mid, 64);
-        fadeToBlackBy(midStrip, mid2, 64);
-        fadeToBlackBy(backStrip, mid3, 64);
-        fill_solid(&frontStrip[mid], commet+ indexLed, CRGB::Yellow);
-        fill_solid(&midStrip[mid2], commet2+ indexLed2, CRGB::Yellow);
-        fill_solid(&backStrip[mid3+1 ], commet3+ indexLed3, CRGB::Yellow);
+        // fadeToBlackBy(frontStrip, mid, 64);
+        // fadeToBlackBy(midStrip, mid2, 64);
+        // fadeToBlackBy(backStrip, mid3, 64);
+        // fill_solid(&frontStrip[mid], commet+ indexLed, CRGB::Yellow);
+        // fill_solid(&midStrip[mid2], commet2+ indexLed2, CRGB::Yellow);
+        // fill_solid(&backStrip[mid3+1 ], commet3+ indexLed3, CRGB::Yellow);
 
-        fill_solid(&frontStrip[mid -indexLed-commet], indexLed+commet, CRGB::Yellow);
-        fill_solid(&midStrip[mid2 -indexLed2-commet2], indexLed2+commet2, CRGB::Yellow);
-        fill_solid(&backStrip[mid3+1 -indexLed3-commet3], indexLed3+commet3, CRGB::Yellow);
+        // fill_solid(&frontStrip[mid -indexLed-commet], indexLed+commet, CRGB::Yellow);
+        // fill_solid(&midStrip[mid2 -indexLed2-commet2], indexLed2+commet2, CRGB::Yellow);
+        // fill_solid(&backStrip[mid3+1 -indexLed3-commet3], indexLed3+commet3, CRGB::Yellow);
 
-        for (int i = 0; i < 3; i++){
-            frontStrip.blur1d(64);
-            midStrip.blur1d(64);
-            backStrip.blur1d(64);
-        }
-        return false;
+        // for (int i = 0; i < 3; i++){
+        //     frontStrip.blur1d(64);
+        //     midStrip.blur1d(64);
+        //     backStrip.blur1d(64);
+        // }
+        // return false;
     }
     return false;
 }
@@ -242,21 +294,31 @@ bool HazardAnimation()
 bool RunningAnimation()
 {
     EVERY_N_MILLISECONDS(N_MILLIS_ANIMATION){
+        static int counterAnimFront = 0;
+        static int counterAnimMid = 0;
+        static int counterAnimBack = 0;
+
         static int counterKnight = 0;
         counterKnight+=2;
-        uint8_t indexLed = counterAnim*commet;
-        uint8_t indexLed2 = counterAnim*commet2;
-        uint8_t indexLed3 = counterAnim*commet3;
+        uint8_t indexLed = counterAnimFront*commet;
+        uint8_t indexLed2 = counterAnimMid*commet2;
+        uint8_t indexLed3 = counterAnimBack*commet3;
 
-        ESP_LOGD("Running", "ck: %d, counterAnim: %d  %c divider: %d",counterKnight, counterAnim, (counterAnim>=divider*2-1)?'>':'<', divider);
+        
 
         if (counterKnight >= 255 ){
             counterKnight = 0;
+            counterAnimFront = 0;
+            counterAnimMid = 0;
+            counterAnimBack = 0;
             return true;
         }
 
         uint8_t raw = triwave8(counterKnight);
-        counterAnim = map8(raw, 0, divider*2-1);
+        counterAnimFront = map8(raw, 0, dividerFront*2-1);
+        counterAnimMid = map8(raw, 0, dividerMid*2-1);
+        counterAnimBack = map8(raw, 0, dividerBack*2-1);
+
 
         
         
@@ -282,6 +344,7 @@ bool RunningAnimation()
 void BrakeLight()
 {
     backStrip.fill_solid(CRGB::Red);
+    FastLED.show(255);
 }
 
 bool StrobeAnimation()

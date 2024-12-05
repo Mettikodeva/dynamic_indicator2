@@ -15,14 +15,14 @@
       "id": "strip1",
       "top": -589.4,
       "left": -2300.3,
-      "attrs": { "rows": "1", "cols": "98", "pixelate": "1", "matrixBrightness": "1.0" }
+      "attrs": { "rows": "1", "cols": "96", "pixelate": "1", "matrixBrightness": "1.0" }
     },
     {
       "type": "wokwi-neopixel-canvas",
       "id": "strip2",
       "top": -589.4,
       "left": 118.9,
-      "attrs": { "rows": "1", "cols": "98", "pixelate": "1", "matrixBrightness": "1.0" }
+      "attrs": { "rows": "1", "cols": "96", "pixelate": "1", "matrixBrightness": "1.0" }
     },
     {
       "type": "wokwi-pushbutton",

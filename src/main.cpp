@@ -44,8 +44,7 @@ void playAnimation(AnimationMode_t mode)
         
         frontStrip.fill_solid(CRGB::White);
     }
-    // ESP_LOGD(TAG, "Active mode: %d", ActiveMode);
-    // ESP_LOGD(TAG, "Current mode: %d", mode);
+    ESP_LOGD(TAG, "Active mode: %d Cur mode: %d", ActiveMode, curMode);
 
     switch (ActiveMode)
     {
@@ -85,7 +84,7 @@ void loop() {
         BrakeLight();
     }else{
         if (curMode == IDLE){
-            backStrip.fadeToBlackBy(40);
+            backStrip.fadeToBlackBy(20);
         }
     }
     FastLED.setBrightness(BRIGHTNESS);
