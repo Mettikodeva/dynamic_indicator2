@@ -11,38 +11,47 @@
 
 #define NUM_STRIPS 3
 
-
 // Pin definitions
 #define STRIP1_PIN 2
 #define STRIP2_PIN 16
 #define STRIP3_PIN 5
 
-void buttonLoop(void *pvParameters){
-    for (;;){
+void buttonLoop(void *pvParameters)
+{
+    for (;;)
+    {
         updateButtons();
         vTaskDelay(pdMS_TO_TICKS(2));
     }
 }
 
-void setup() {
+void setup()
+{
     Serial.begin(921600);
     setupLED();
     attachButtons();
-    xTaskCreate(buttonLoop, "buttonLoop", 2048, NULL, 1, NULL);
+    xTaskCreatePinnedToCore(buttonLoop, "buttonLoop", 2048, NULL, 1, NULL, 1);
 }
 
+AnimationMode_t ActiveMode = IDLE;
 void playAnimation(AnimationMode_t mode)
 {
-    static AnimationMode_t ActiveMode = IDLE;
-    const char* TAG = "playAnimation";
+    const char *TAG = "playAnimation";
 
-
-    if (ActiveMode == IDLE){
+    if (ActiveMode == IDLE)
+    {
         ActiveMode = mode;
     }
-    if (isDRLActive && ActiveMode != WELCOME){
-        
-        frontStrip.fill_solid(CRGB::White);
+    if (isDRLActive && ActiveMode != WELCOME)
+    {
+        if (ActiveMode != IDLE)
+        {
+            frontStrip.fill_solid(CRGB::Gray);
+        }
+        else
+        {
+            frontStrip.fill_solid(CRGB::White);
+        }
     }
     ESP_LOGD(TAG, "Active mode: %d Cur mode: %d", ActiveMode, curMode);
 
@@ -50,7 +59,7 @@ void playAnimation(AnimationMode_t mode)
     {
     case WELCOME:
         WelcomeAnimation() ? ActiveMode = IDLE : ActiveMode = WELCOME;
-        curMode = ActiveMode == IDLE? IDLE : curMode;
+        curMode = ActiveMode == IDLE ? IDLE : curMode;
         break;
     case SIGNAL_LEFT:
         TurnLeftAnimation() ? ActiveMode = IDLE : ActiveMode = SIGNAL_LEFT;
@@ -68,26 +77,36 @@ void playAnimation(AnimationMode_t mode)
         ByeAnimation() ? ActiveMode = IDLE : ActiveMode = BYE;
         break;
     case KNIGHT_RIDER:
-        RunningAnimation() ? ActiveMode = IDLE : ActiveMode = KNIGHT_RIDER;
+        RunningAnimationV2() ? ActiveMode = IDLE : ActiveMode = KNIGHT_RIDER;
         break;
     default:
         break;
     }
 }
 
-void loop() {
-    EVERY_N_MILLISECONDS(10){
-        vTaskDelay(5 / portTICK_PERIOD_MS);
-        playAnimation(curMode);
-    }
-    if(isBrakePressed){
+void loop()
+{
+    playAnimation(curMode);
+    if (isBrakePressed)
+    {
         BrakeLight();
-    }else{
-        if (curMode == IDLE){
+    }
+    else
+    {
+        if (ActiveMode == IDLE)
+        {
             backStrip.fadeToBlackBy(20);
         }
     }
+    if (ActiveMode == IDLE)
+    {
+        if (!isDRLActive)
+        {
+            frontStrip.fadeToBlackBy(20);
+        }
+        midStrip.fadeToBlackBy(20);
+    }
     FastLED.setBrightness(BRIGHTNESS);
     FastLED.delay(2);
-    vTaskDelay(5 / portTICK_PERIOD_MS);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 }
