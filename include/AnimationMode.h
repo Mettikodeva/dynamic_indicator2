@@ -9,7 +9,7 @@ typedef enum AnimationMode
     SIGNAL_RIGHT,
     SIGNAL_BOTH,
     STROBE,
-    STROBE2,
+    BREATH,
     KNIGHT_RIDER,
     IDLE,
 } AnimationMode_t;

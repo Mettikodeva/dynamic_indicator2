@@ -118,6 +118,17 @@ void doubleClickCallback(void *button)
         curMode = KNIGHT_RIDER;
     }
 }
+void multiClickCallback(void *button)
+{
+    OneButton *btn = (OneButton *)button;
+    const char *TAG = "doubleClick";
+    // ESP_LOGD(TAG, "Double click");
+    uint8_t pin = btn->pin();
+    if (pin == PIN_HAZARD)
+    {
+        curMode = BREATH;
+    }
+}
 
 void attachButtons()
 {
@@ -128,6 +139,7 @@ void attachButtons()
     signalRightButton->attachLongPressStart(pressStartCallback, signalRightButton);
     hazardButton->attachLongPressStart(pressStartCallback, hazardButton);
     hazardButton->attachDoubleClick(doubleClickCallback, hazardButton);
+    hazardButton->attachMultiClick(multiClickCallback, hazardButton);
     brakeButton->attachLongPressStart(pressStartCallback, brakeButton);
 
     drlButton->attachLongPressStop(pressStopCallback, drlButton);

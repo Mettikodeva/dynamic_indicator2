@@ -42,7 +42,7 @@ void playAnimation(AnimationMode_t mode)
     {
         ActiveMode = mode;
     }
-    if (isDRLActive && ActiveMode != WELCOME)
+    if (isDRLActive && ActiveMode != WELCOME && ActiveMode != BYE)
     {
         if (ActiveMode != IDLE)
         {
@@ -73,6 +73,9 @@ void playAnimation(AnimationMode_t mode)
     case STROBE:
         StrobeAnimation() ? ActiveMode = IDLE : ActiveMode = STROBE;
         break;
+    case BREATH:
+        BreathAnimation() ? ActiveMode = IDLE : ActiveMode = BREATH;
+        break;
     case BYE:
         ByeAnimation() ? ActiveMode = IDLE : ActiveMode = BYE;
         break;
@@ -93,7 +96,7 @@ void loop()
     }
     else
     {
-        if (ActiveMode == IDLE)
+        if (ActiveMode == IDLE || ActiveMode == WELCOME || ActiveMode == BYE)
         {
             backStrip.fadeToBlackBy(20);
         }

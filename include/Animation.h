@@ -7,7 +7,7 @@
 #define N_MILLIS_SIGNAL 80
 #define N_MILLIS_WELCOME 80
 #define N_MILLIS_ANIMATION 20
-#define SIGNAL_BEAT 30
+#define SIGNAL_BEAT 50
 #define ANIMATION_CHECK_DEBOUNCE 200
 
 uint8_t mid = NUM_LEDS_FRONT_STRIP / 2;
@@ -179,10 +179,7 @@ bool TurnLeftAnimation()
     uint8_t indexLed = map(raw, 0, 65535, 0, mid);
     uint8_t indexLed2 = map(raw, 0, 65535, 0, mid2);
     uint8_t indexLed3 = map(raw, 0, 65535, 0, mid3);
-    if (isDRLActive)
-    {
-        frontStrip.fill_solid(CRGB::Gray);
-    }
+
     fill_solid(&frontStrip[mid - indexLed], indexLed - 1, CRGB::Yellow);
     fill_solid(&midStrip[mid2 - indexLed2], indexLed2 - 1, CRGB::Yellow);
     fill_solid(&backStrip[mid3 - indexLed3], indexLed3 - 1, CRGB::Yellow);
@@ -226,10 +223,6 @@ bool TurnRightAnimation()
     uint8_t indexLed2 = map(raw, 0, 65535, 0, mid2);
     uint8_t indexLed3 = map(raw, 0, 65535, 0, mid3);
 
-    if (isDRLActive)
-    {
-        frontStrip.fill_solid(CRGB::Gray);
-    }
     fill_solid(&frontStrip[mid], indexLed, CRGB::Yellow);
     fill_solid(&midStrip[mid2], indexLed2, CRGB::Yellow);
     fill_solid(&backStrip[mid3], indexLed3, CRGB::Yellow);
@@ -334,12 +327,22 @@ bool RunningAnimationV2()
     {
         if (!first_peak_detected)
         {
+            ESP_LOGD("Breath", "First peak detected");
             first_peak_detected = true;
         }
         else
         {
+            ESP_LOGD("Breath", "Period complete");
             period_complete = true;
         }
+        // if (!first_peak_detected)
+        // {
+        //     first_peak_detected = true;
+        // }
+        // else
+        // {
+        //     period_complete = true;
+        // }
     }
 
     prev_raw = raw;
@@ -351,6 +354,7 @@ bool RunningAnimationV2()
         // fadeToBlackBy(backStrip, 255);
         period_complete = false;     // Reset for the next period
         first_peak_detected = false; // Reset for the next period
+        prev_raw = 0;
         return true;
     }
 
@@ -376,7 +380,7 @@ bool StrobeAnimation()
         fill_solid(backStrip, mid3, CRGB::White);
         fill_solid(&frontStrip[mid], mid, CRGB::Blue);
         fill_solid(&midStrip[mid2], mid2, CRGB::Blue);
-        fill_solid(&backStrip[mid3], mid3, CRGB::Blue);
+        fill_solid(&backStrip[mid3], mid3 + 1, CRGB::Blue);
     }
     else
     {
@@ -385,7 +389,7 @@ bool StrobeAnimation()
         fill_solid(backStrip, mid3, CRGB::Blue);
         fill_solid(&frontStrip[mid], mid, CRGB::White);
         fill_solid(&midStrip[mid2], mid2, CRGB::White);
-        fill_solid(&backStrip[mid3], mid3, CRGB::White);
+        fill_solid(&backStrip[mid3], mid3 + 1, CRGB::White);
         counterStrobe++;
     }
     if (counterStrobe >= 10)
@@ -393,5 +397,77 @@ bool StrobeAnimation()
         counterStrobe = 0;
         return true;
     }
+    return false;
+}
+
+bool BreathAnimation()
+{
+
+    static uint16_t timebase = GET_MILLIS();
+    // static uint16_t timebase = 0;
+    static uint16_t prev_raw = 0;
+    static bool first_peak_detected = false;
+    static bool period_complete = false;
+    static bool swap_colors = false;
+    const uint16_t BPM = 30;
+
+    if (prev_raw == 0)
+    {
+        EVERY_N_MILLISECONDS(ANIMATION_CHECK_DEBOUNCE)
+        {
+            timebase = GET_MILLIS();
+        }
+    }
+
+    uint16_t raw = beatsin16(BPM);
+
+    // Generate sine wave values
+    uint16_t left_value = beatsin16(BPM, 0, 65535 / 2, timebase);
+    uint16_t right_value = beatsin16(BPM, 0, 65535 / 2, timebase, 65535 / 2); // 90-degree phase offset (16384 in 16-bit space)
+    ESP_LOGD("Breath", "Left: %d, Right: %d", left_value, right_value);
+    // Define colors
+    CRGB left_color = swap_colors ? CRGB(0, 0, 255) : CRGB(255, 0, 0);  // Blue or Red
+    CRGB right_color = swap_colors ? CRGB(255, 0, 0) : CRGB(0, 0, 255); // Red or Blue
+
+    // Fill the strip
+    fill_solid(frontStrip, mid, left_color);
+    fill_solid(&frontStrip[mid], mid, right_color);
+    fill_solid(midStrip, mid2, left_color);
+    fill_solid(&midStrip[mid2], mid2, right_color);
+    fill_solid(backStrip, mid3, left_color);
+    fill_solid(&backStrip[mid3], mid3 + 1, right_color);
+
+    // Adjust brightness
+    fadeLightBy(frontStrip, mid, (left_value >> 8));
+    fadeLightBy(&frontStrip[mid], mid, (right_value >> 8));
+    fadeLightBy(midStrip, mid2, (left_value >> 8));
+    fadeLightBy(&midStrip[mid2], mid2, (right_value >> 8));
+    fadeLightBy(backStrip, mid3, (left_value >> 8));
+    fadeLightBy(&backStrip[mid3], mid3 + 1, (right_value >> 8));
+    // Detect turning points
+    if (prev_raw < raw && raw > beatsin16(BPM))
+    {
+        if (!first_peak_detected)
+        {
+            ESP_LOGD("Breath", "First peak detected");
+            first_peak_detected = true;
+        }
+        else
+        {
+            ESP_LOGD("Breath", "Period complete");
+            period_complete = true;
+        }
+    }
+    prev_raw = raw;
+
+    if (period_complete)
+    {
+        period_complete = false;     // Reset for the next period
+        first_peak_detected = false; // Reset for the next period
+        swap_colors = !swap_colors;  // Swap colors after one full period
+        prev_raw = 0;
+        return true;
+    }
+
     return false;
 }
